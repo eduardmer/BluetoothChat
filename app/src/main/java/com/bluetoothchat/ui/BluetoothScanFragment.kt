@@ -1,7 +1,9 @@
 package com.bluetoothchat.ui
 
+import android.Manifest
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -17,11 +19,10 @@ import com.bluetoothchat.R
 import com.bluetoothchat.databinding.FragmentBluetoothScanBinding
 import com.bluetoothchat.model.DiscoveryResult
 import com.bluetoothchat.domain.Result
-import com.bluetoothchat.model.Permission
 import com.bluetoothchat.ui.adapter.BluetoothDevicesAdapter
-import com.bluetoothchat.utils.PermissionManager
 import com.bluetoothchat.utils.addMenu
 import com.bluetoothchat.utils.showWarningDialog
+import com.permission_manager.PermissionManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -68,11 +69,17 @@ class BluetoothScanFragment : Fragment() {
         binding.scanButton.setOnClickListener {
             permissionManager.requestPermission(
                 if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R)
-                    Permission.BLUETOOTH_SCAN
-                else Permission.LOCATION
-            ).checkPermission {
-                if (it)
-                    viewModel.startDiscovery()
+                    Manifest.permission.BLUETOOTH_SCAN
+                else {
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                }
+            ).checkPermissions { result ->
+                when(result) {
+                    com.permission_manager.Result.PERMISSIONS_GRANTED -> viewModel.startDiscovery()
+                    com.permission_manager.Result.PERMISSIONS_DENIED -> Log.i("PermissionsResult", "Permissions denied")
+                    com.permission_manager.Result.PERMISSIONS_RATIONALE -> requireContext().showWarningDialog(message = "Permission")
+                }
             }
         }
     }
