@@ -11,10 +11,12 @@
     <string name="scan_warning">Make sure that your bluetooth button is active when you try to find nearby devices.</string>
 
     <string name="warning">Warning</string>
+    <string name="error">An error occurred</string>
     <string name="request_permission">You should enable permission %s to scan for bluetooth devices.</string>
     <string name="enable_bluetooth">You should enable bluetooth to scan nearby devices.</string>
     <string name="enable_bluetooth_location">You should enable bluetooth and location to scan nearby devices.</string>
     <string name="no_device_found">There is no device found.</string>
 
     <string name="cancel">Cancel</string>
+    <string name="done">Done</string>
 </resources>

@@ -33,6 +33,12 @@ class SharedViewModel @Inject constructor(
         }
     }
 
+    fun stopServer() {
+        viewModelScope.launch {
+            bluetoothController.stopServer()
+        }
+    }
+
     fun connectToDevice(device: BluetoothDevice) {
         viewModelScope.launch {
             bluetoothController.connectToDevice(device)

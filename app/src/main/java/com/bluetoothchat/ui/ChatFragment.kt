@@ -39,7 +39,6 @@ class ChatFragment : Fragment() {
                         is ConnectionResult.ConnectionAccepted -> Toast.makeText(requireContext(), "Connected", Toast.LENGTH_SHORT).show()
                         is ConnectionResult.ConnectionError -> Toast.makeText(requireContext(), it.error.message ?: "Error", Toast.LENGTH_SHORT).show()
                         ConnectionResult.ConnectionInitiated -> Toast.makeText(requireContext(), "Connection initiated", Toast.LENGTH_SHORT).show()
-                        ConnectionResult.ConnectionNotInitiated -> Toast.makeText(requireContext(), "Connection NotInitiated", Toast.LENGTH_SHORT).show()
                         ConnectionResult.Disconnected -> {
                             Toast.makeText(requireContext(), "Disconnected", Toast.LENGTH_SHORT).show()
                             findNavController().navigateUp()

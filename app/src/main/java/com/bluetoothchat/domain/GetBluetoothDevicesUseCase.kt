@@ -11,8 +11,9 @@ import javax.inject.Inject
 
 class GetBluetoothDevicesUseCase @Inject constructor(private val bluetoothController: BluetoothController) {
 
-    operator fun invoke() = bluetoothController.discoveryState.map<DiscoveryResult, Result> { discoveryState ->
-        Result.Success(discoveryState, ConnectionResult.ConnectionNotInitiated)
+    operator fun invoke() = combine<DiscoveryResult, ConnectionResult, Result>(bluetoothController.discoveryState, bluetoothController.connectionState)
+    { discoveryState, connectionState ->
+        Result.Success(discoveryState, connectionState)
     }.catch {
         emit(Result.Error(it))
     }

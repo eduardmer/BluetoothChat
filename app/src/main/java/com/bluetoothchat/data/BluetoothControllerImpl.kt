@@ -17,12 +17,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import java.lang.Exception
 import java.util.UUID
@@ -45,11 +41,14 @@ class BluetoothControllerImpl @Inject constructor(
         replay = 1,
         onBufferOverflow = BufferOverflow.DROP_LATEST
     )
-    private val _connectionState = MutableStateFlow<ConnectionResult>(ConnectionResult.ConnectionNotInitiated)
+    private val _connectionState = MutableSharedFlow<ConnectionResult>(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_LATEST
+    )
     override val discoveryState: SharedFlow<DiscoveryResult>
         get() = _discoveryState.asSharedFlow()
-    override val connectionState: StateFlow<ConnectionResult>
-        get() = _connectionState.asStateFlow()
+    override val connectionState: SharedFlow<ConnectionResult>
+        get() = _connectionState.asSharedFlow()
 
     private val allDevices = mutableListOf<BluetoothDevice>()
     private var serverSocket: BluetoothServerSocket? = null
@@ -75,13 +74,9 @@ class BluetoothControllerImpl @Inject constructor(
 
     private val bluetoothStateReceiver = BluetoothStateReceiver { isConnected, device ->
         if (isConnected && device != null)
-            _connectionState.update {
-                ConnectionResult.ConnectionAccepted(device.toDomainModel())
-            }
+            _connectionState.tryEmit(ConnectionResult.ConnectionAccepted(device.toDomainModel()))
         else
-            _connectionState.update {
-                ConnectionResult.Disconnected
-            }
+            _connectionState.tryEmit(ConnectionResult.Disconnected)
     }
 
     init {
@@ -99,7 +94,7 @@ class BluetoothControllerImpl @Inject constructor(
             _discoveryState.tryEmit(DiscoveryResult.DiscoveryError(DiscoveryError.BLUETOOTH_NOT_ENABLED))
         else if (bluetoothAdapter?.isEnabled == false || !locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER))
             _discoveryState.tryEmit(DiscoveryResult.DiscoveryError(DiscoveryError.BLUETOOTH_LOCATION_NOT_ENABLED))
-        if (bluetoothAdapter?.isDiscovering != true) {
+        else if (bluetoothAdapter?.isDiscovering != true) {
             context.registerReceiver(
                 foundDeviceReceiver,
                 IntentFilter().apply {
@@ -117,9 +112,11 @@ class BluetoothControllerImpl @Inject constructor(
     }
 
     override suspend fun openServer() = withContext(Dispatchers.IO) {
-        _connectionState.update {
-            ConnectionResult.ConnectionInitiated
+        if (bluetoothAdapter?.isEnabled == false) {
+            _connectionState.emit(ConnectionResult.ConnectionError(Throwable("Bluetooth is off")))
+            return@withContext
         }
+        _connectionState.emit(ConnectionResult.ConnectionInitiated)
         serverSocket = bluetoothAdapter?.listenUsingInsecureRfcommWithServiceRecord(
             "BluetoothChat",
             UUID.fromString(SERVICE_UUID)
@@ -129,9 +126,7 @@ class BluetoothControllerImpl @Inject constructor(
             clientSocket = try {
                 serverSocket?.accept()
             } catch (error: Exception) {
-                _connectionState.update {
-                    ConnectionResult.ConnectionError(error)
-                }
+                _connectionState.emit(ConnectionResult.ConnectionError(error))
                 shouldLoop = false
                 null
             }
@@ -153,11 +148,16 @@ class BluetoothControllerImpl @Inject constructor(
             } catch (error: Exception) {
                 it.close()
                 clientSocket = null
-                _connectionState.update {
-                    ConnectionResult.ConnectionError(error)
-                }
+                _connectionState.tryEmit(ConnectionResult.ConnectionError(error))
             }
         }
+    }
+
+    override fun stopServer() {
+        serverSocket?.close()
+        clientSocket?.close()
+        serverSocket = null
+        clientSocket = null
     }
 
     /**

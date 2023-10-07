@@ -9,13 +9,15 @@ import kotlinx.coroutines.flow.StateFlow
 interface BluetoothController {
 
     val discoveryState: SharedFlow<DiscoveryResult>
-    val connectionState: StateFlow<ConnectionResult>
+    val connectionState: SharedFlow<ConnectionResult>
 
     fun startDiscovery()
 
     fun stopDiscovery()
 
     suspend fun openServer()
+
+    fun stopServer()
 
     suspend fun connectToDevice(device: BluetoothDevice)
 
