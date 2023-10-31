@@ -26,6 +26,9 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_bluetoothScanFragment_to_progressDialog"
+            app:destination="@id/progressDialog" />
     </fragment>
     <fragment
         android:id="@+id/chatFragment"
@@ -35,4 +38,8 @@
         android:id="@+id/scannedDevicesFragment"
         android:name="com.bluetoothchat.ui.ScannedDevicesFragment"
         android:label="Scanned devices" />
+    <dialog
+        android:id="@+id/progressDialog"
+        android:name="com.bluetoothchat.ui.ProgressDialog"
+        android:label="ProgressDialog" />
 </navigation>

@@ -5,7 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.bluetoothchat.model.BluetoothDevice
 import com.bluetoothchat.domain.BluetoothController
 import com.bluetoothchat.domain.GetBluetoothDevicesUseCase
+import com.bluetoothchat.model.ConnectionResult
+import com.bluetoothchat.model.DiscoveryResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -15,28 +20,28 @@ class SharedViewModel @Inject constructor(
     getBluetoothDevicesUseCase: GetBluetoothDevicesUseCase
 ) : ViewModel() {
 
-    val state = getBluetoothDevicesUseCase()
-
     val serverState = bluetoothController.connectionState
 
-    fun startDiscovery() {
-        bluetoothController.startDiscovery()
+    val connectionState = bluetoothController.isDeviceConnected.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        ConnectionResult.Disconnected
+    )
+
+    fun startDiscovery(): Flow<DiscoveryResult> {
+        return bluetoothController.startDiscovery()
     }
 
     fun stopDiscovery() {
         bluetoothController.stopDiscovery()
     }
 
-    fun openServer() {
-        viewModelScope.launch {
-            bluetoothController.openServer()
-        }
+    fun openServer(): Flow<ConnectionResult> {
+        return bluetoothController.openServer()
     }
 
     fun stopServer() {
-        viewModelScope.launch {
-            bluetoothController.stopServer()
-        }
+        bluetoothController.stopServer()
     }
 
     fun connectToDevice(device: BluetoothDevice) {

@@ -3,19 +3,20 @@ package com.bluetoothchat.domain
 import com.bluetoothchat.model.BluetoothDevice
 import com.bluetoothchat.model.ConnectionResult
 import com.bluetoothchat.model.DiscoveryResult
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 
 interface BluetoothController {
 
-    val discoveryState: SharedFlow<DiscoveryResult>
     val connectionState: SharedFlow<ConnectionResult>
 
-    fun startDiscovery()
+    val isDeviceConnected: Flow<ConnectionResult>
+
+    fun startDiscovery(): Flow<DiscoveryResult>
 
     fun stopDiscovery()
 
-    suspend fun openServer()
+    fun openServer(): Flow<ConnectionResult>
 
     fun stopServer()
 

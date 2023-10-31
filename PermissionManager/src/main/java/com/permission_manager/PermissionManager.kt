@@ -8,15 +8,15 @@ import androidx.fragment.app.Fragment
 class PermissionManager(private val fragment: Fragment) {
 
     private val permissions = mutableListOf<String>()
-    private var block: (Result) -> Unit = {}
+    private var block: (PermissionResult) -> Unit = {}
     private val permissionsRationale = mutableListOf<String>()
 
     private val permissionCheck =
         fragment.registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             sendResult(
                 if (result.all { it.value })
-                    Result.PERMISSIONS_GRANTED
-                else Result.PERMISSIONS_DENIED
+                    PermissionResult.PERMISSIONS_GRANTED
+                else PermissionResult.PERMISSIONS_DENIED
             )
         }
 
@@ -33,15 +33,15 @@ class PermissionManager(private val fragment: Fragment) {
      * Check if the specified permissions are granted or not
      * @param block the code that will be invoked after checking permissions
      */
-    fun checkPermissions(block: (Result) -> Unit) {
+    fun checkPermissions(block: (PermissionResult) -> Unit) {
         this.block = block
         handlePermissionRequest()
     }
 
     private fun handlePermissionRequest() {
         when {
-            areAllPermissionsGranted() -> sendResult(Result.PERMISSIONS_GRANTED)
-            shouldShowRequestPermissionRationale() -> sendResult(Result.PERMISSIONS_RATIONALE)
+            areAllPermissionsGranted() -> sendResult(PermissionResult.PERMISSIONS_GRANTED)
+            shouldShowRequestPermissionRationale() -> sendResult(PermissionResult.PERMISSIONS_RATIONALE)
             else -> permissionCheck.launch(permissions.toTypedArray())
         }
     }
@@ -59,7 +59,7 @@ class PermissionManager(private val fragment: Fragment) {
         return permissionsRationale.isNotEmpty()
     }
 
-    private fun sendResult(result: Result) {
+    private fun sendResult(result: PermissionResult) {
         block(result)
         permissions.clear()
         block = {}

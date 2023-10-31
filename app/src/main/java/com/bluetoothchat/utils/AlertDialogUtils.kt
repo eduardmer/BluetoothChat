@@ -1,10 +1,11 @@
 package com.bluetoothchat.utils
 
 import android.content.Context
+import android.content.DialogInterface
 import androidx.appcompat.app.AlertDialog
 import com.bluetoothchat.R
 
-fun Context.showWarningDialog(titleId: Int = R.string.warning, message: String) {
+fun Context.showWarningDialog(titleId: Int = R.string.warning, message: Int) {
     AlertDialog.Builder(this)
         .setTitle(titleId)
         .setMessage(message)
@@ -23,6 +24,17 @@ fun Context.showErrorDialog(titleId: Int = R.string.error, message: String) =
         .setIcon(R.drawable.ic_error)
         .setPositiveButton(R.string.done) { dialog, _ ->
             dialog.dismiss()
+        }
+        .create()
+        .show()
+
+fun Context.showProgressDialog(titleId: Int, buttonText: Int, iconId: Int, onClickListener: (DialogInterface) -> Unit) =
+    AlertDialog.Builder(this)
+        .setTitle(titleId)
+        .setIcon(iconId)
+        .setView(R.layout.view_progress)
+        .setNegativeButton(buttonText) { dialog, _ ->
+            onClickListener(dialog)
         }
         .create()
         .show()

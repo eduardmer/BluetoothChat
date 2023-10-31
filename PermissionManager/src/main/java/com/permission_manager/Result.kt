@@ -1,6 +1,6 @@
 package com.permission_manager
 
-enum class Result {
+enum class PermissionResult {
     /**
      * this is returned when all permissions have been granted
      */

@@ -43,7 +43,7 @@ class ScannedDevicesFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.VERTICAL, false)
             adapter = bluetoothDevicesAdapter
         }
-        lifecycleScope.launch {
+        /*lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 viewModel.state.collect { result ->
                     when(result) {
@@ -65,7 +65,7 @@ class ScannedDevicesFragment : Fragment() {
                     }
                 }
             }
-        }
+        }*/
     }
 
     private fun handleBluetoothScanning(result: DiscoveryResult) {
