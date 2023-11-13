@@ -13,13 +13,6 @@
         android:name="com.bluetoothchat.ui.BluetoothScanFragment"
         android:label="Scan devices" >
         <action
-            android:id="@+id/action_bluetoothScanFragment_to_scannedDevicesFragment"
-            app:destination="@id/scannedDevicesFragment"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"
-            app:popEnterAnim="@anim/slide_in_left"
-            app:popExitAnim="@anim/slide_out_right"/>
-        <action
             android:id="@+id/action_bluetoothScanFragment_to_chatFragment"
             app:destination="@id/chatFragment"
             app:enterAnim="@anim/slide_in_right"
@@ -31,8 +24,4 @@
         android:id="@+id/chatFragment"
         android:name="com.bluetoothchat.ui.ChatFragment"
         android:label="ChatFragment" />
-    <fragment
-        android:id="@+id/scannedDevicesFragment"
-        android:name="com.bluetoothchat.ui.ScannedDevicesFragment"
-        android:label="Scanned devices" />
 </navigation>

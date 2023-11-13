@@ -1,15 +1,16 @@
 package com.bluetoothchat.domain
 
+import com.bluetoothchat.data.BluetoothDataTransfer
 import com.bluetoothchat.model.BluetoothDevice
-import com.bluetoothchat.model.ConnectionResult
-import com.bluetoothchat.model.DiscoveryResult
-import kotlinx.coroutines.flow.SharedFlow
+import com.bluetoothchat.model.ConnectionState
+import com.bluetoothchat.model.ScanningState
 import kotlinx.coroutines.flow.StateFlow
 
 interface BluetoothController {
 
-    val discoveryState: SharedFlow<DiscoveryResult>
-    val connectionState: SharedFlow<ConnectionResult>
+    val scanningState: StateFlow<ScanningState>
+    val connectionState: StateFlow<ConnectionState>
+    var dataTransferService: BluetoothDataTransfer?
 
     fun startDiscovery()
 
@@ -20,5 +21,7 @@ interface BluetoothController {
     fun stopServer()
 
     suspend fun connectToDevice(device: BluetoothDevice)
+
+    suspend fun sendMessage(message: String)
 
 }

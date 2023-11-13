@@ -2,8 +2,10 @@ package com.bluetoothchat.ui
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.core.view.isVisible
 import androidx.databinding.DataBindingUtil
 import androidx.navigation.NavController
+import androidx.navigation.NavDestination
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
@@ -32,6 +34,10 @@ class MainActivity : AppCompatActivity() {
             )
         )
         binding.bottomNavigation.setupWithNavController(navController)
+        navController.addOnDestinationChangedListener { _: NavController, destination: NavDestination, _: Bundle? ->
+            binding.bottomNavigation.isVisible =
+                appBarConfiguration.topLevelDestinations.contains(destination.id)
+        }
         setupActionBarWithNavController(navController, appBarConfiguration)
     }
 

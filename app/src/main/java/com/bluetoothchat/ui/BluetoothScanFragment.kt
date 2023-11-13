@@ -1,34 +1,31 @@
 package com.bluetoothchat.ui
 
 import android.Manifest
-import android.app.ProgressDialog
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bluetoothchat.R
 import com.bluetoothchat.databinding.FragmentBluetoothScanBinding
-import com.bluetoothchat.model.DiscoveryResult
-import com.bluetoothchat.domain.Result
-import com.bluetoothchat.model.ConnectionResult
+import com.bluetoothchat.model.ConnectionState
+import com.bluetoothchat.model.ScanningState
 import com.bluetoothchat.ui.adapter.BluetoothDevicesAdapter
 import com.bluetoothchat.utils.addMenu
+import com.bluetoothchat.utils.launchAndRepeatWithViewLifecycle
 import com.bluetoothchat.utils.showErrorDialog
+import com.bluetoothchat.utils.showProgressDialog
 import com.bluetoothchat.utils.showWarningDialog
 import com.permission_manager.PermissionManager
+import com.permission_manager.PermissionResult
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class BluetoothScanFragment : Fragment() {
@@ -37,7 +34,7 @@ class BluetoothScanFragment : Fragment() {
     private lateinit var binding: FragmentBluetoothScanBinding
     private lateinit var bluetoothDevicesAdapter: BluetoothDevicesAdapter
     private val permissionManager = PermissionManager(this)
-    private var progressDialog: ProgressDialog? = null
+    private var progressDialog: AlertDialog? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         binding = FragmentBluetoothScanBinding.inflate(inflater, container, false)
@@ -52,9 +49,9 @@ class BluetoothScanFragment : Fragment() {
                     permissionManager.requestPermission(Manifest.permission.BLUETOOTH_CONNECT)
                         .checkPermissions { result ->
                             when (result) {
-                                com.permission_manager.Result.PERMISSIONS_GRANTED -> viewModel.openServer()
-                                com.permission_manager.Result.PERMISSIONS_DENIED -> Log.i("PermissionConnectResult", "Permissions denied")
-                                com.permission_manager.Result.PERMISSIONS_RATIONALE -> requireContext().showWarningDialog(message = "Permission Bluetooth Connect")
+                                PermissionResult.PERMISSIONS_GRANTED -> viewModel.openServer()
+                                PermissionResult.PERMISSIONS_DENIED -> Log.i("PermissionConnectResult", "Permissions denied")
+                                PermissionResult.PERMISSIONS_RATIONALE -> requireContext().showWarningDialog(message = "Permission Bluetooth Connect")
                             }
                         }
                 else
@@ -70,87 +67,73 @@ class BluetoothScanFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.VERTICAL, false)
             adapter = bluetoothDevicesAdapter
         }
-        lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                viewModel.state.collect { result ->
-                    when(result) {
-                        is Result.Success -> handleBluetoothScanning(result.discoveryState)
-                        is Result.Error ->
-                            Toast.makeText(requireContext(), result.error.message ?: "Error", Toast.LENGTH_SHORT).show()
-                    }
+        launchAndRepeatWithViewLifecycle {
+            viewModel.state.collect {
+                val scanningState = it.scannedResult
+                binding.state = scanningState
+                if (scanningState is ScanningState.ScanningInProgress)
+                    bluetoothDevicesAdapter.submitList(scanningState.devices)
+                else if (scanningState is ScanningState.ScanningFinished) {
+                    binding.emptyItem.root.isVisible = scanningState.devices.isEmpty()
+                    bluetoothDevicesAdapter.submitList(scanningState.devices)
                 }
-            }
-        }
-        lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                viewModel.serverState.collect { result ->
-                    when(result) {
-                        ConnectionResult.ConnectionInitiated -> showProgressBar(true)
-                        is ConnectionResult.ConnectionAccepted -> {
-                            showProgressBar(false)
-                            findNavController().navigate(R.id.action_bluetoothScanFragment_to_chatFragment)
-                        }
-                        is ConnectionResult.ConnectionError -> {
-                            showProgressBar(false)
-                            requireContext().showErrorDialog(message = result.error.message ?: "Error")
-                        }
-                        ConnectionResult.Disconnected -> Toast.makeText(requireContext(), "Disconnected", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                handleDeviceConnection(it.connectionResult)
             }
         }
         binding.scanButton.setOnClickListener {
-            permissionManager.requestPermission(
-                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R)
-                    Manifest.permission.BLUETOOTH_SCAN
-                else {
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                }
-            ).checkPermissions { result ->
-                when(result) {
-                    com.permission_manager.Result.PERMISSIONS_GRANTED -> viewModel.startDiscovery()
-                    com.permission_manager.Result.PERMISSIONS_DENIED -> Log.i("PermissionsResult", "Permissions denied")
-                    com.permission_manager.Result.PERMISSIONS_RATIONALE -> requireContext().showWarningDialog(message = "Permission")
+            if (binding.scanButton.tag == "start") {
+                permissionManager.requestPermission(
+                    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R)
+                        Manifest.permission.BLUETOOTH_SCAN
+                    else {
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    }
+                ).checkPermissions { result ->
+                    when (result) {
+                        PermissionResult.PERMISSIONS_GRANTED -> viewModel.startDiscovery()
+                        PermissionResult.PERMISSIONS_DENIED -> Log.i(
+                            "PermissionsResult",
+                            "Permissions denied"
+                        )
+                        PermissionResult.PERMISSIONS_RATIONALE -> requireContext().showWarningDialog(
+                            message = "Permission"
+                        )
+                    }
                 }
             }
+            else
+                viewModel.stopDiscovery()
         }
     }
 
-    private fun handleBluetoothScanning(result: DiscoveryResult) {
+    private fun handleDeviceConnection(result: ConnectionState) {
         when(result) {
-            DiscoveryResult.DiscoveryStarted -> enableScanButton(false)
-            is DiscoveryResult.DiscoveryFinished -> {
-                enableScanButton(true)
-                binding.textView2.isVisible = false
-                binding.textView3.isVisible = false
-                binding.recyclerView.isVisible = true
-                binding.emptyItem.root.isVisible = result.devices.isEmpty()
-                bluetoothDevicesAdapter.submitList(result.devices)
+            is ConnectionState.ConnectionAccepted -> {
+                progressDialog?.dismiss()
+                findNavController().navigate(R.id.action_bluetoothScanFragment_to_chatFragment)
             }
-            is DiscoveryResult.DiscoveryError ->
-                requireContext().showWarningDialog(message = getString(result.error.messageId))
-        }
-    }
-
-    private fun enableScanButton(shouldEnable: Boolean) {
-        binding.scanButton.isEnabled = shouldEnable
-    }
-
-    private fun showProgressBar(isVisible: Boolean) {
-        if (!isVisible)
-            progressDialog?.dismiss()
-        else
-            progressDialog = ProgressDialog(requireContext()).apply {
-                setTitle("Server is open")
-                setMessage("Waiting for connection")
-                setCancelable(false)
-                setButton("Stop server") { dialog, _ ->
+            is ConnectionState.ConnectionError -> {
+                requireContext().showErrorDialog(
+                    message = result.error.message ?: getString(R.string.error)
+                ) {
+                    it.dismiss()
+                    viewModel.stopServer()
+                }
+            }
+            ConnectionState.ConnectionInitiated -> {
+                progressDialog = requireContext().showProgressDialog(
+                    R.string.waiting_for_connection,
+                    R.string.close_server,
+                    R.drawable.ic_bluetooth_connect
+                ) { dialog ->
                     viewModel.stopServer()
                     dialog.dismiss()
                 }
-                show()
+                progressDialog?.show()
             }
+            ConnectionState.Disconnected -> {}
+        }
     }
 
 }

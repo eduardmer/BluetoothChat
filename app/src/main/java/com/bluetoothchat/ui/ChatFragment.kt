@@ -10,9 +10,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.fragment.findNavController
 import com.bluetoothchat.databinding.FragmentChatBinding
-import com.bluetoothchat.model.ConnectionResult
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -30,20 +28,12 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.button2.setOnClickListener {
-
+            viewModel.sendMessage(binding.message.text.toString())
         }
         lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                viewModel.serverState.collect {
-                    when(it) {
-                        is ConnectionResult.ConnectionAccepted -> Toast.makeText(requireContext(), "Connected", Toast.LENGTH_SHORT).show()
-                        is ConnectionResult.ConnectionError -> Toast.makeText(requireContext(), it.error.message ?: "Error", Toast.LENGTH_SHORT).show()
-                        ConnectionResult.ConnectionInitiated -> Toast.makeText(requireContext(), "Connection initiated", Toast.LENGTH_SHORT).show()
-                        ConnectionResult.Disconnected -> {
-                            Toast.makeText(requireContext(), "Disconnected", Toast.LENGTH_SHORT).show()
-                            findNavController().navigateUp()
-                        }
-                    }
+                viewModel.chatState?.collect() {
+                    Toast.makeText(requireContext(), it.message, Toast.LENGTH_SHORT).show()
                 }
             }
         }
