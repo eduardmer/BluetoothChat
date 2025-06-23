@@ -4,13 +4,28 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
 import com.bluetoothchat.model.BluetoothDevice
 import com.bluetoothchat.databinding.BluetoothDeviceItemBinding
-import com.bluetoothchat.ui.view_holder.BluetoothDeviceViewHolder
 
 class BluetoothDevicesAdapter(
     private val onItemClicked: (BluetoothDevice) -> Unit
-) : ListAdapter<BluetoothDevice, BluetoothDeviceViewHolder>(DiffCallBack()) {
+) : ListAdapter<BluetoothDevice, BluetoothDevicesAdapter.BluetoothDeviceViewHolder>(DiffCallBack()) {
+
+    class BluetoothDeviceViewHolder(
+        private val binding: BluetoothDeviceItemBinding,
+        private val onItemClicked: (BluetoothDevice) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
+
+        fun bind(item: BluetoothDevice) {
+            binding.item = item
+            binding.root.setOnClickListener {
+                onItemClicked(item)
+            }
+            binding.executePendingBindings()
+        }
+
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BluetoothDeviceViewHolder {
         val binding = BluetoothDeviceItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -27,7 +42,7 @@ class BluetoothDevicesAdapter(
         }
 
         override fun areContentsTheSame(oldItem: BluetoothDevice, newItem: BluetoothDevice): Boolean {
-            return oldItem == newItem
+            return oldItem.name == newItem.name
         }
     }
 

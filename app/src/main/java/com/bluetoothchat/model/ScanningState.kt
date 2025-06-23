@@ -1,8 +1,8 @@
 package com.bluetoothchat.model
 
 sealed interface ScanningState {
-    object ScanningStarted : ScanningState
+    object EmptyValue : ScanningState
     data class ScanningInProgress(val devices: List<BluetoothDevice>) : ScanningState
     data class ScanningFinished(val devices: List<BluetoothDevice>) : ScanningState
-    object EmptyValue : ScanningState
+    data class Error(val error: String) : ScanningState
 }

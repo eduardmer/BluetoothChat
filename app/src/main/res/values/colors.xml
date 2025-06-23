@@ -10,4 +10,6 @@
     <color name="semi_blue">#B30266D6</color>
     <color name="warning_color">#EA9C1F</color>
     <color name="red">#FC0D1B</color>
+    <color name="local_user_message_color">#CEF6A0</color>
+    <color name="remote_user_message_color">#FFe1d89f</color>
 </resources>

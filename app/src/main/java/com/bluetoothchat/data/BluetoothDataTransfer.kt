@@ -1,41 +1,40 @@
 package com.bluetoothchat.data
 
 import android.bluetooth.BluetoothSocket
-import com.bluetoothchat.domain.BluetoothMessage
-import com.bluetoothchat.domain.toBluetoothMessage
+import com.bluetoothchat.data.local.MessagesEntity
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
-import java.lang.Exception
 
-class BluetoothDataTransfer(private val socket: BluetoothSocket) {
+class BluetoothDataTransfer(
+    private val socket: BluetoothSocket,
+    private val localDevice: String,
+    ) {
 
     private val buffer: ByteArray = ByteArray(1024)
 
-    fun listenForMessages(): Flow<BluetoothMessage> = flow {
-        if (!socket.isConnected)
-            return@flow
+    fun listenForMessages() = flow {
         while (true) {
             val byteCount = try {
                 socket.inputStream.read(buffer)
-            } catch (error: Exception) {
+            } catch (error: Exception){
+                error.printStackTrace()
                 throw error
             }
-            emit(buffer.decodeToString(endIndex = byteCount).toBluetoothMessage(false))
+            emit(MessagesEntity(local_device = localDevice, remote_device = socket.remoteDevice.address, message = buffer.decodeToString(endIndex = byteCount), isFromLocal = false, date = System.currentTimeMillis()))
         }
     }.flowOn(Dispatchers.IO)
 
-    suspend fun sendMessage(bytes: ByteArray): Boolean {
+    suspend fun sendMessage(message: String): MessagesEntity {
         return withContext(Dispatchers.IO) {
             try {
-                socket.outputStream.write(bytes)
+                socket.outputStream.write(message.encodeToByteArray())
             } catch (error: Exception) {
                 error.printStackTrace()
-                return@withContext false
+                throw error
             }
-            true
+            MessagesEntity(local_device = localDevice, remote_device = socket.remoteDevice.address, message = message, isFromLocal = true, date = System.currentTimeMillis())
         }
     }
 

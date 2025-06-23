@@ -6,8 +6,7 @@
     <data>
         <variable
             name="state"
-            type="com.bluetoothchat.model.ScanningState" />
-        <import type="com.bluetoothchat.model.ScanningState"/>
+            type="com.bluetoothchat.ui.UiState" />
         <import type="android.view.View"/>
     </data>
 
@@ -44,7 +43,7 @@
             android:textColor="@color/black"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:visibility="@{state instanceof ScanningState.EmptyValue ? View.VISIBLE : View.GONE}"
+            android:visibility="@{state.hasScannedBefore ? View.GONE : View.VISIBLE}"
             app:layout_constraintBottom_toTopOf="@+id/textView3"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
@@ -59,7 +58,7 @@
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:text="@string/scan_warning"
-            android:visibility="@{state instanceof ScanningState.EmptyValue ? View.VISIBLE : View.GONE}"
+            android:visibility="@{state.hasScannedBefore ? View.GONE : View.VISIBLE}"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
@@ -68,10 +67,10 @@
             android:id="@+id/recyclerView"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:visibility="@{state instanceof ScanningState.EmptyValue ? View.GONE : View.VISIBLE}"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHeight_percent="0.7"
+            android:visibility="@{state.hasScannedBefore ? View.VISIBLE : View.GONE}"
             app:layout_constraintStart_toStartOf="parent" />
 
         <include
@@ -95,7 +94,7 @@
             android:textColor="@color/white"
             android:textSize="14sp"
             android:tag="start"
-            app:state="@{state}"
+            app:state="@{state.scanning}"
             app:icon="@drawable/ic_bluetooth_search"
             app:iconTint="@color/white"
             app:layout_constraintBottom_toTopOf="@+id/textView2"

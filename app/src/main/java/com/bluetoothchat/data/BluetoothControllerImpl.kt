@@ -7,12 +7,16 @@ import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.IntentFilter
 import android.location.LocationManager
+import android.os.Build
+import com.bluetoothchat.R
+import com.bluetoothchat.data.local.MessagesEntity
 import com.bluetoothchat.model.BluetoothDevice
 import com.bluetoothchat.domain.BluetoothController
+import com.bluetoothchat.domain.ScanningState
 import com.bluetoothchat.model.ConnectionState
-import com.bluetoothchat.model.ScanningState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,7 +40,7 @@ class BluetoothControllerImpl @Inject constructor(
     }
 
     override var dataTransferService: BluetoothDataTransfer? = null
-    private val _scanningState = MutableStateFlow<ScanningState>(ScanningState.EmptyValue)
+    private val _scanningState = MutableStateFlow(ScanningState())
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     override val scanningState: StateFlow<ScanningState>
         get() = _scanningState.asStateFlow()
@@ -56,28 +60,39 @@ class BluetoothControllerImpl @Inject constructor(
                 allDevices.addAll(it)
             }
             _scanningState.update {
-                ScanningState.ScanningStarted
+                ScanningState(
+                    allDevices.toMutableList(),
+                    hasScannedBefore = true,
+                    isScanning = true,
+                    error = null
+                )
             }
         }, { device ->
             val newDevice = device.toDomainModel()
             if (!allDevices.contains(newDevice))
                 allDevices.add(newDevice)
             _scanningState.update {
-                ScanningState.ScanningInProgress(allDevices)
+                ScanningState(
+                    allDevices.toMutableList(),
+                    hasScannedBefore = true,
+                    isScanning = true,
+                    null
+                )
             }
         }, {
             _scanningState.update {
-                ScanningState.ScanningFinished(allDevices)
+                ScanningState(
+                    allDevices.toMutableList(),
+                    hasScannedBefore = true,
+                    isScanning = false,
+                    null
+                )
             }
         }
     )
 
-    private val bluetoothStateReceiver = BluetoothStateReceiver { isConnected, device ->
-        if (isConnected && device != null)
-            _connectionState.update {
-                ConnectionState.ConnectionAccepted(device.toDomainModel())
-            }
-        else
+    private val bluetoothStateReceiver = BluetoothStateReceiver { isConnected, _ ->
+        if (!isConnected)
             _connectionState.update {
                 ConnectionState.Disconnected
             }
@@ -94,15 +109,31 @@ class BluetoothControllerImpl @Inject constructor(
     }
 
     override fun startDiscovery() {
-        context.registerReceiver(
-            foundDeviceReceiver,
-            IntentFilter().apply {
-                addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
-                addAction(android.bluetooth.BluetoothDevice.ACTION_FOUND)
-                addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R && bluetoothAdapter?.isEnabled == false)
+            _scanningState.update {
+                it.copy(
+                    isScanning = false,
+                    error = context.getString(R.string.enable_bluetooth)
+                )
             }
-        )
-        bluetoothAdapter?.startDiscovery()
+        else if (bluetoothAdapter?.isEnabled == false || !locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER))
+            _scanningState.update {
+                it.copy(
+                    isScanning = false,
+                    error = context.getString(R.string.enable_bluetooth_location)
+                )
+            }
+        else {
+            context.registerReceiver(
+                foundDeviceReceiver,
+                IntentFilter().apply {
+                    addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
+                    addAction(android.bluetooth.BluetoothDevice.ACTION_FOUND)
+                    addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+                }
+            )
+            bluetoothAdapter?.startDiscovery()
+        }
     }
 
     override fun stopDiscovery() {
@@ -128,10 +159,13 @@ class BluetoothControllerImpl @Inject constructor(
                 shouldLoop = false
                 null
             }
-            clientSocket?.also {
+            clientSocket?.also { socket ->
                 closeServerSocket()
                 shouldLoop = false
-                dataTransferService = BluetoothDataTransfer(it)
+                dataTransferService = BluetoothDataTransfer(socket, bluetoothAdapter?.address ?: "")
+                _connectionState.update {
+                    ConnectionState.ConnectionAccepted(socket.remoteDevice.toDomainModel())
+                }
             }
         }
     }
@@ -144,7 +178,10 @@ class BluetoothControllerImpl @Inject constructor(
         clientSocket?.let {
             try {
                 it.connect()
-                dataTransferService = BluetoothDataTransfer(it)
+                dataTransferService = BluetoothDataTransfer(it, bluetoothAdapter?.address ?: "")
+                _connectionState.update {
+                    ConnectionState.ConnectionAccepted(device)
+                }
             } catch (error: Exception) {
                 it.close()
                 clientSocket = null
@@ -155,23 +192,29 @@ class BluetoothControllerImpl @Inject constructor(
         }
     }
 
-    override fun stopServer() {
+    override fun closeConnection() {
         serverSocket?.close()
         clientSocket?.close()
         serverSocket = null
         clientSocket = null
+        dataTransferService = null
         _connectionState.update {
             ConnectionState.Disconnected
         }
     }
 
-    override suspend fun sendMessage(message: String) {
-        /*val message = BluetoothMessage(
-            message,
-            bluetoothAdapter?.name ?: "NAME",
-            true
-        )*/
-        dataTransferService?.sendMessage(message.encodeToByteArray())
+    override fun listenForMessages(): Flow<MessagesEntity>? {
+        return dataTransferService?.listenForMessages()
+    }
+
+    override suspend fun sendMessage(message: String): MessagesEntity? {
+        return dataTransferService?.sendMessage(message)
+    }
+
+    override fun deleteError() {
+        _scanningState.update {
+            it.copy(error = null)
+        }
     }
 
     /**

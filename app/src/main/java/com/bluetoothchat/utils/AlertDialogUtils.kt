@@ -17,13 +17,20 @@ fun Context.showWarningDialog(titleId: Int = R.string.warning, message: String) 
         .show()
 }
 
-fun Context.showErrorDialog(titleId: Int = R.string.error, message: String, onClickListener: (DialogInterface) -> Unit) =
+fun Context.showErrorDialog(
+    titleId: Int = R.string.error,
+    message: String,
+    onClickListener: (DialogInterface) -> Unit,
+    onDismissListener: () -> Unit = {}
+) =
     AlertDialog.Builder(this)
         .setTitle(titleId)
         .setMessage(message)
         .setIcon(R.drawable.ic_error)
         .setPositiveButton(R.string.done) { dialog, _ ->
             onClickListener(dialog)
+        }.setOnDismissListener {
+            onDismissListener()
         }
         .create()
         .show()

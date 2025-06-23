@@ -8,7 +8,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AlertDialog
-import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
@@ -16,7 +15,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.bluetoothchat.R
 import com.bluetoothchat.databinding.FragmentBluetoothScanBinding
 import com.bluetoothchat.model.ConnectionState
-import com.bluetoothchat.model.ScanningState
 import com.bluetoothchat.ui.adapter.BluetoothDevicesAdapter
 import com.bluetoothchat.utils.addMenu
 import com.bluetoothchat.utils.launchAndRepeatWithViewLifecycle
@@ -69,14 +67,7 @@ class BluetoothScanFragment : Fragment() {
         }
         launchAndRepeatWithViewLifecycle {
             viewModel.state.collect {
-                val scanningState = it.scannedResult
-                binding.state = scanningState
-                if (scanningState is ScanningState.ScanningInProgress)
-                    bluetoothDevicesAdapter.submitList(scanningState.devices)
-                else if (scanningState is ScanningState.ScanningFinished) {
-                    binding.emptyItem.root.isVisible = scanningState.devices.isEmpty()
-                    bluetoothDevicesAdapter.submitList(scanningState.devices)
-                }
+                handleScanning(it)
                 handleDeviceConnection(it.connectionResult)
             }
         }
@@ -85,10 +76,8 @@ class BluetoothScanFragment : Fragment() {
                 permissionManager.requestPermission(
                     if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R)
                         Manifest.permission.BLUETOOTH_SCAN
-                    else {
+                    else
                         Manifest.permission.ACCESS_FINE_LOCATION
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    }
                 ).checkPermissions { result ->
                     when (result) {
                         PermissionResult.PERMISSIONS_GRANTED -> viewModel.startDiscovery()
@@ -107,19 +96,36 @@ class BluetoothScanFragment : Fragment() {
         }
     }
 
+    private fun handleScanning(result: UiState) {
+        binding.state = result
+        if (result.hasScannedBefore)
+            bluetoothDevicesAdapter.submitList(result.scannedDevices)
+        if (result.error != null)
+            requireContext().showErrorDialog(
+                message = result.error,
+                onClickListener = {
+                    it.dismiss()
+                },
+                onDismissListener = {
+                    viewModel.deleteError()
+                }
+            )
+    }
+
     private fun handleDeviceConnection(result: ConnectionState) {
         when(result) {
             is ConnectionState.ConnectionAccepted -> {
                 progressDialog?.dismiss()
-                findNavController().navigate(R.id.action_bluetoothScanFragment_to_chatFragment)
+                findNavController().navigate(BluetoothScanFragmentDirections.actionBluetoothScanFragmentToChatFragment(result.device.address))
             }
             is ConnectionState.ConnectionError -> {
                 requireContext().showErrorDialog(
-                    message = result.error.message ?: getString(R.string.error)
-                ) {
-                    it.dismiss()
-                    viewModel.stopServer()
-                }
+                    message = result.error.message ?: getString(R.string.error),
+                    onClickListener = {
+                        it.dismiss()
+                        viewModel.closeConnection()
+                    }
+                )
             }
             ConnectionState.ConnectionInitiated -> {
                 progressDialog = requireContext().showProgressDialog(
@@ -127,7 +133,7 @@ class BluetoothScanFragment : Fragment() {
                     R.string.close_server,
                     R.drawable.ic_bluetooth_connect
                 ) { dialog ->
-                    viewModel.stopServer()
+                    viewModel.closeConnection()
                     dialog.dismiss()
                 }
                 progressDialog?.show()
